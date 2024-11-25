@@ -1,15 +1,22 @@
+const { useState, useEffect } = React
+const { Link, useSearchParams } = ReactRouterDOM
+const { useSelector, useDispatch } = ReactRedux
+
 import { TodoFilter } from "../cmps/TodoFilter.jsx"
 import { TodoList } from "../cmps/TodoList.jsx"
 import { DataTable } from "../cmps/data-table/DataTable.jsx"
 import { todoService } from "../services/todo.service.js"
 import { showErrorMsg, showSuccessMsg } from "../services/event-bus.service.js"
+import { loadTodos, removeTodo, saveTodo } from '../store/actions/todo.actions.js'
+// import { ADD_CAR_TO_CART } from '../store/store.js'
 
-const { useState, useEffect } = React
-const { Link, useSearchParams } = ReactRouterDOM
 
 export function TodoIndex() {
 
-    const [todos, setTodos] = useState(null)
+    const todos = useSelector(storeState => storeState.todos)
+    const dispatch = useDispatch()
+
+    const isLoading = useSelector(storeState => storeState.isLoading)
 
     // Special hook for accessing search-params:
     const [searchParams, setSearchParams] = useSearchParams()
@@ -20,8 +27,7 @@ export function TodoIndex() {
 
     useEffect(() => {
         setSearchParams(filterBy)
-        todoService.query(filterBy)
-            .then(todos => setTodos(todos))
+        loadTodos(filterBy)
             .catch(err => {
                 console.eror('err:', err)
                 showErrorMsg('Cannot load todos')
@@ -29,27 +35,24 @@ export function TodoIndex() {
     }, [filterBy])
 
     function onRemoveTodo(todoId) {
-        todoService.remove(todoId)
+        removeTodo(todoId)
             .then(() => {
-                setTodos(prevTodos => prevTodos.filter(todo => todo._id !== todoId))
-                showSuccessMsg(`Todo removed`)
+                showSuccessMsg('Todo removed')
             })
             .catch(err => {
-                console.log('err:', err)
-                showErrorMsg('Cannot remove todo ' + todoId)
+                showErrorMsg('Cannot remove todo')
             })
     }
 
     function onToggleTodo(todo) {
         const todoToSave = { ...todo, isDone: !todo.isDone }
-        todoService.save(todoToSave)
+        saveTodo(todoToSave)
             .then((savedTodo) => {
-                setTodos(prevTodos => prevTodos.map(currTodo => (currTodo._id !== todo._id) ? currTodo : { ...savedTodo }))
                 showSuccessMsg(`Todo is ${(savedTodo.isDone)? 'done' : 'back on your list'}`)
             })
             .catch(err => {
                 console.log('err:', err)
-                showErrorMsg('Cannot toggle todo ' + todoId)
+                showErrorMsg('Cannot toggle todo ' + todoToSave._id)
             })
     }
 
@@ -61,7 +64,10 @@ export function TodoIndex() {
                 <Link to="/todo/edit" className="btn" >Add Todo</Link>
             </div>
             <h2>Todos List</h2>
-            <TodoList todos={todos} onRemoveTodo={onRemoveTodo} onToggleTodo={onToggleTodo} />
+            {!isLoading
+                ? <TodoList todos={todos} onRemoveTodo={onRemoveTodo} onToggleTodo={onToggleTodo} />
+                : <div>Loading...</div>
+            }            
             <hr />
             <h2>Todos Table</h2>
             <div style={{ width: '60%', margin: 'auto' }}>
